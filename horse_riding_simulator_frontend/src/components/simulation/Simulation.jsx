@@ -1,8 +1,47 @@
 import React, { useRef } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Html, Sky, Float } from '@react-three/drei';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Html, Sky, Float } from '@react-three/drei';
 import useGameStore from '../../store/gameStore';
 import useKeyboardControls from './useKeyboardControls';
+
+/**
+ * A simple chase camera that stays at a fixed offset behind the target (horse).
+ * It repositions and looks at the horse every frame for a third-person perspective.
+ */
+function ChaseCamera({ targetRef, offset = [0, 2.2, 5.5], stiffness = 0.18, lookAtOffset = [0, 1.2, 0] }) {
+  const { camera } = useThree();
+  const desired = useRef(new window.THREE.Vector3());
+  const current = useRef(new window.THREE.Vector3());
+  const tmp = useRef(new window.THREE.Vector3());
+  const up = new window.THREE.Vector3(0, 1, 0);
+
+  useFrame((_, dt) => {
+    if (!targetRef?.current) return;
+
+    // Compute desired position behind the horse based on its orientation
+    const horse = targetRef.current;
+    const worldPos = tmp.current.copy(horse.position);
+    const back = new window.THREE.Vector3(0, 0, 1).applyEuler(horse.rotation).normalize(); // local +Z is back because horse forward is -Z
+    const upVec = up;
+
+    desired.current
+      .copy(worldPos)
+      .addScaledVector(upVec, offset[1]) // height component
+      .addScaledVector(back, offset[2]) // distance behind
+      .add(new window.THREE.Vector3(offset[0], 0, 0).applyEuler(horse.rotation)); // lateral offset if any
+
+    // Smoothly move camera towards desired position (spring-damper style)
+    current.current.copy(camera.position);
+    const lerpAlpha = 1 - Math.pow(1 - stiffness, dt * 60); // frame-rate independent
+    camera.position.lerp(desired.current, Math.min(1, lerpAlpha));
+
+    // Make the camera look slightly above the horse's origin for a nicer angle
+    const lookTarget = tmp.current.copy(worldPos).add(new window.THREE.Vector3(...lookAtOffset));
+    camera.lookAt(lookTarget);
+  });
+
+  return null;
+}
 
 // PUBLIC_INTERFACE
 export default function Simulation() {
@@ -10,14 +49,17 @@ export default function Simulation() {
    * Summary: Renders ground, sky, and a stylized horse mesh. Integrates movement based on input and gait.
    * Returns: JSX.Element
    */
+  const horseRef = useRef();
+
   return (
-    <Canvas camera={{ position: [6, 4, 8], fov: 55 }} style={{ height: '60vh', minHeight: 360 }}>
+    <Canvas camera={{ position: [0, 2.2, 5.5], fov: 55 }} style={{ height: '60vh', minHeight: 360 }}>
       <ambientLight intensity={0.4} />
       <directionalLight position={[5, 10, 2]} intensity={0.9} castShadow />
       <Sky sunPosition={[5, 2, 1]} turbidity={6} />
       <Ground />
-      <Horse />
-      <OrbitControls enablePan={false} maxPolarAngle={Math.PI / 2.2} />
+      <Horse ref={horseRef} />
+      {/* Third-person chase camera locked behind the horse */}
+      <ChaseCamera targetRef={horseRef} offset={[0, 2.2, 6]} lookAtOffset={[0, 1.0, 0]} />
       <Html position={[0, 0.02, 0]} distanceFactor={12}>
         <div className="hud-chip" style={{ pointerEvents: 'none' }}>
           Training Arena
@@ -36,8 +78,10 @@ function Ground() {
   );
 }
 
-function Horse() {
-  const ref = useRef();
+const Horse = React.forwardRef(function Horse(_, ref) {
+  const localRef = useRef();
+  const meshRef = ref || localRef;
+
   const { input, gait, setSpeed, setStamina, stamina, addDistance, avatar } = useGameStore(s => ({
     input: s.input, gait: s.gait, setSpeed: s.setSpeed, setStamina: s.setStamina, stamina: s.stamina, addDistance: s.addDistance, avatar: s.avatar
   }));
@@ -66,19 +110,19 @@ function Horse() {
     else setStamina(Math.min(100, stamina + 0.05)); // passive regen
 
     // integrate position
-    if (ref.current) {
+    if (meshRef.current) {
       const dir = new window.THREE.Vector3();
       if (forward || back) {
         const move = target * dt;
-        dir.set(0, 0, forward ? -1 : 1).applyEuler(ref.current.rotation);
-        ref.current.position.addScaledVector(dir, Math.abs(move));
+        dir.set(0, 0, forward ? -1 : 1).applyEuler(meshRef.current.rotation);
+        meshRef.current.position.addScaledVector(dir, Math.abs(move));
         addDistance(Math.abs(move));
       }
-      if (left) ref.current.rotation.y += 1.5 * dt;
-      if (right) ref.current.rotation.y -= 1.5 * dt;
+      if (left) meshRef.current.rotation.y += 1.5 * dt;
+      if (right) meshRef.current.rotation.y -= 1.5 * dt;
 
       // slight bobbing to simulate gait
-      ref.current.position.y = 0.8 + Math.sin(performance.now() / 250) * 0.02;
+      meshRef.current.position.y = 0.8 + Math.sin(performance.now() / 250) * 0.02;
     }
 
     setSpeed(Math.abs(target));
@@ -86,7 +130,7 @@ function Horse() {
 
   // Stylized "low-poly" placeholder horse using primitive shapes
   return (
-    <group ref={ref} position={[0, 0.8, 0]}>
+    <group ref={meshRef} position={[0, 0.8, 0]}>
       <Float floatIntensity={0.5} rotationIntensity={0.1} speed={1}>
         <mesh castShadow position={[0, 0.6, 0]}>
           <boxGeometry args={[1.4, 0.6, 0.4]} />
@@ -116,4 +160,4 @@ function Horse() {
       </Float>
     </group>
   );
-}
+});
