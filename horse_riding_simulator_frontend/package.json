@@ -1,16 +1,21 @@
 {
-  "name": "react-kavia",
-  "version": "0.1.0",
+  "name": "horse-riding-simulator-frontend",
+  "version": "1.0.0",
   "private": true,
   "dependencies": {
+    "@react-three/drei": "^9.105.6",
+    "@react-three/fiber": "^8.16.6",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-scripts": "^5.0.1"
+    "react-scripts": "^5.0.1",
+    "three": "^0.160.0",
+    "zustand": "^4.5.4",
+    "classnames": "^2.5.1"
   },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "test": "react-scripts test",
+    "test": "react-scripts test --watchAll=false",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {

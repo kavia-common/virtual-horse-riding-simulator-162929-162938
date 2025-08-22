@@ -1,47 +1,33 @@
-import React, { useState, useEffect } from 'react';
-import logo from './logo.svg';
+import React from 'react';
 import './App.css';
+import TopNav from './components/TopNav';
+import Sidebar from './components/Sidebar';
+import Simulator from './components/Simulator';
+import HUD from './components/HUD';
+import useGameStore from './state/gameStore';
 
 // PUBLIC_INTERFACE
 function App() {
-  const [theme, setTheme] = useState('light');
-
-  // Effect to apply theme to document element
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
-
-  // PUBLIC_INTERFACE
-  const toggleTheme = () => {
-    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
-  };
+  /** Root of the Horse Riding Simulator Frontend.
+   * Renders the application shell including:
+   * - Top navigation (brand, quality, settings)
+   * - Sidebar (controls, customization, tutorial)
+   * - Main area with 3D scene and HUD cards
+   */
+  const { score } = useGameStore();
 
   return (
-    <div className="App">
-      <header className="App-header">
-        <button 
-          className="theme-toggle" 
-          onClick={toggleTheme}
-          aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
-        >
-          {theme === 'light' ? '🌙 Dark' : '☀️ Light'}
-        </button>
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <p>
-          Current theme: <strong>{theme}</strong>
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div className="app-shell" aria-label="Horse Riding Simulator Shell">
+      <TopNav />
+      <aside className="sidebar" aria-label="Sidebar Controls and Tutorials">
+        <Sidebar />
+      </aside>
+      <main className="main" aria-label="Main Simulation Area">
+        <div className="canvas-wrap" aria-label="3D Simulation Canvas">
+          <Simulator />
+        </div>
+        <HUD />
+      </main>
     </div>
   );
 }

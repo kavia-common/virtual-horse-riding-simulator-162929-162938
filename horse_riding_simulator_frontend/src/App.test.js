@@ -1,8 +1,9 @@
 import { render, screen } from '@testing-library/react';
 import App from './App';
 
-test('renders learn react link', () => {
+test('renders app shell with topbar and sidebar', () => {
   render(<App />);
-  const linkElement = screen.getByText(/learn react/i);
-  expect(linkElement).toBeInTheDocument();
+  expect(screen.getByLabelText(/Horse Riding Simulator Shell/i)).toBeInTheDocument();
+  expect(screen.getByLabelText(/Sidebar Controls and Tutorials/i)).toBeInTheDocument();
+  expect(screen.getByLabelText(/Main Simulation Area/i)).toBeInTheDocument();
 });
