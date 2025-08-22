@@ -1,11 +1,17 @@
 {
-  "name": "react-kavia",
+  "name": "horse-riding-simulator-frontend",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-scripts": "^5.0.1"
+    "@react-three/drei": "9.56.26",
+    "@react-three/fiber": "8.12.1",
+    "clsx": "2.1.1",
+    "leva": "0.9.36",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-scripts": "5.0.1",
+    "three": "0.150.1",
+    "zustand": "4.5.7"
   },
   "scripts": {
     "start": "react-scripts start",
@@ -29,6 +35,6 @@
     ]
   },
   "devDependencies": {
-    "cross-env": "^7.0.3"
+    "cross-env": "7.0.3"
   }
 }

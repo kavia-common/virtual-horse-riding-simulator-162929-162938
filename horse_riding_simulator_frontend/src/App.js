@@ -1,49 +1,43 @@
-import React, { useState, useEffect } from 'react';
-import logo from './logo.svg';
+import React from 'react';
 import './App.css';
+import TopNav from './components/layout/TopNav';
+import Sidebar from './components/layout/Sidebar';
+import Simulation from './components/simulation/Simulation';
+import ControlsBar from './components/layout/ControlsBar';
+import useGameStore from './store/gameStore';
 
 // PUBLIC_INTERFACE
-function App() {
-  const [theme, setTheme] = useState('light');
+export default function App() {
+  /** The main application shell: top navigation, sidebar, 3D simulation area and a bottom controls bar. */
+  const theme = 'light'; // fixed light theme per requirements
 
-  // Effect to apply theme to document element
-  useEffect(() => {
+  React.useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
-  // PUBLIC_INTERFACE
-  const toggleTheme = () => {
-    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
-  };
+  const { score, speed, stamina } = useGameStore(state => ({
+    score: state.score,
+    speed: state.speed,
+    stamina: state.stamina
+  }));
 
   return (
-    <div className="App">
-      <header className="App-header">
-        <button 
-          className="theme-toggle" 
-          onClick={toggleTheme}
-          aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
-        >
-          {theme === 'light' ? '🌙 Dark' : '☀️ Light'}
-        </button>
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <p>
-          Current theme: <strong>{theme}</strong>
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div className="app-shell">
+      <TopNav />
+      <Sidebar />
+      <main className="main">
+        <div className="canvas-wrap">
+          <Simulation />
+          <div className="hud">
+            <div className="hud-top">
+              <div className="hud-chip"><span className="badge">Score</span><span className="score">{score}</span></div>
+              <div className="hud-chip"><span className="badge">Speed</span><span className="speed">{speed.toFixed(1)} m/s</span></div>
+              <div className="hud-chip"><span className="badge">Stamina</span><span className="stamina">{Math.round(stamina)}%</span></div>
+            </div>
+          </div>
+        </div>
+        <ControlsBar />
+      </main>
     </div>
   );
 }
-
-export default App;
