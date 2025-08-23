@@ -5,14 +5,27 @@ import useGameStore from '../../store/gameStore';
 import useKeyboardControls from './useKeyboardControls';
 
 /**
- * A chase camera positioned very close and low behind the horse for a third-person view.
- * Camera hugs the rear with smoothing, looking slightly above the back.
+ * Classic third-person chase camera.
+ * - Offset: [0, 2.0, 6.0] (behind and above the horse)
+ * - Look target: slightly above head/neck (lookAtOffset [0, 1.3, -1.5] in horse space)
+ * - Extra smoothing, especially vertical, to reduce animation bobbing
+ * - Stable FOV (set on Canvas) for consistent framing
  */
-function ChaseCamera({ targetRef, offset = [0, 1.4, 3.2], stiffness = 0.22, lookAtOffset = [0, 1.1, -0.2] }) {
+function ChaseCamera({
+  targetRef,
+  offset = [0, 2.0, 6.0],
+  stiffness = 0.18,          // general smoothing
+  verticalDamping = 0.08,    // extra vertical smoothing factor (smaller = smoother)
+  lookAtOffset = [0, 1.3, -1.5]
+}) {
   const { camera } = useThree();
   const desired = useRef(new window.THREE.Vector3());
+  const smoothed = useRef(new window.THREE.Vector3());
   const tmp = useRef(new window.THREE.Vector3());
   const up = useMemo(() => new window.THREE.Vector3(0, 1, 0), []);
+
+  // Initialize smoothed position on first frame to avoid pop
+  const initialized = useRef(false);
 
   useFrame((_, dt) => {
     if (!targetRef?.current) return;
@@ -20,22 +33,41 @@ function ChaseCamera({ targetRef, offset = [0, 1.4, 3.2], stiffness = 0.22, look
     const horse = targetRef.current;
     const worldPos = tmp.current.copy(horse.position);
 
-    // Place the camera slightly above and close behind the horse, aligned to its rotation
-    const back = new window.THREE.Vector3(0, 0, 1).applyEuler(horse.rotation).normalize(); // back direction in world
+    // Compute world-space basis from horse rotation
+    const back = new window.THREE.Vector3(0, 0, 1).applyEuler(horse.rotation).normalize();
     const lateral = new window.THREE.Vector3(1, 0, 0).applyEuler(horse.rotation).normalize();
 
+    // Desired camera position in world
     desired.current
       .copy(worldPos)
-      .addScaledVector(up, offset[1])      // raise camera
-      .addScaledVector(back, offset[2])    // behind
-      .addScaledVector(lateral, offset[0]); // side shift if needed
+      .addScaledVector(up, offset[1])       // rise
+      .addScaledVector(back, offset[2])     // behind
+      .addScaledVector(lateral, offset[0]); // lateral shift
 
-    // Smooth follow
-    const lerpAlpha = 1 - Math.pow(1 - stiffness, dt * 60);
-    camera.position.lerp(desired.current, Math.min(1, lerpAlpha));
+    // Initialize smoothed on first tick
+    if (!initialized.current) {
+      smoothed.current.copy(desired.current);
+      camera.position.copy(desired.current);
+      initialized.current = true;
+    }
 
-    // Look a bit ahead above the horse's back for visibility
-    const lookTarget = tmp.current.copy(worldPos).add(new window.THREE.Vector3(...lookAtOffset).applyEuler(horse.rotation));
+    // Extra smoothed vertical axis to reduce bobbing from horse animation.
+    // We apply different damping for Y vs XZ.
+    const lerpGeneral = 1 - Math.pow(1 - stiffness, dt * 60);
+    const lerpVertical = 1 - Math.pow(1 - verticalDamping, dt * 60);
+
+    // Smooth X and Z with general damping
+    smoothed.current.x += (desired.current.x - smoothed.current.x) * Math.min(1, lerpGeneral);
+    smoothed.current.z += (desired.current.z - smoothed.current.z) * Math.min(1, lerpGeneral);
+    // Smooth Y more strongly
+    smoothed.current.y += (desired.current.y - smoothed.current.y) * Math.min(1, lerpVertical);
+
+    camera.position.copy(smoothed.current);
+
+    // Look slightly above the head/neck towards where the horse is facing
+    const lookTarget = tmp.current
+      .copy(worldPos)
+      .add(new window.THREE.Vector3(...lookAtOffset).applyEuler(horse.rotation));
     camera.lookAt(lookTarget);
   });
 
@@ -45,20 +77,21 @@ function ChaseCamera({ targetRef, offset = [0, 1.4, 3.2], stiffness = 0.22, look
 // PUBLIC_INTERFACE
 export default function Simulation() {
   /** The main 3D simulation area using react-three-fiber with a simple horse placeholder and movement loop.
-   * Summary: Renders ground, sky, and a stylized horse mesh. Integrates movement-based animation and close third-person camera.
+   * Summary: Renders ground, sky, and a stylized horse mesh. Integrates movement-based animation and a classic third-person chase camera.
    * Returns: JSX.Element
    */
   const horseRef = useRef();
 
+  // fov set to 55 for a classic game-style view
   return (
-    <Canvas camera={{ position: [0, 1.4, 3.2], fov: 60 }} style={{ height: '60vh', minHeight: 360 }}>
+    <Canvas camera={{ position: [0, 2.0, 6.0], fov: 55 }} style={{ height: '60vh', minHeight: 360 }}>
       <ambientLight intensity={0.5} />
       <directionalLight position={[5, 10, 2]} intensity={0.9} castShadow />
       <Sky sunPosition={[5, 2, 1]} turbidity={6} />
       <Ground />
       <Horse ref={horseRef} />
-      {/* Third-person chase camera, close and low behind the horse */}
-      <ChaseCamera targetRef={horseRef} offset={[0, 1.4, 3.2]} lookAtOffset={[0, 1.1, 0.4]} />
+      {/* Classic third-person chase camera: behind and above, with extra vertical smoothing */}
+      <ChaseCamera targetRef={horseRef} offset={[0, 2.0, 6.0]} lookAtOffset={[0, 1.3, -1.5]} stiffness={0.18} verticalDamping={0.08} />
       <Html position={[0, 0.02, 0]} distanceFactor={12}>
         <div className="hud-chip" style={{ pointerEvents: 'none' }}>
           Training Arena
